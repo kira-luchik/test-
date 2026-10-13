@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Письменные вычисления в пределах 1000</title>
+<style>
+:root{--bg:#f6efe0;--card:#ffffff;--ink:#2b2a33;--mute:#6b6558;--acc:#2f5d8a;--acc-ink:#ffffff;--ok:#1f7a4d;--bad:#b3402a;--line:#e0d6bd;--sel:#dfe8f1}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d2229;--card:#262d36;--ink:#f1ece0;--mute:#a9b0b6;--acc:#7fb0e0;--acc-ink:#1d2229;--ok:#6fd3a0;--bad:#ff9d86;--line:#3a4552;--sel:#2f4358}}
+:root[data-theme="dark"]{--bg:#1d2229;--card:#262d36;--ink:#f1ece0;--mute:#a9b0b6;--acc:#7fb0e0;--acc-ink:#1d2229;--ok:#6fd3a0;--bad:#ff9d86;--line:#3a4552;--sel:#2f4358}
+*{box-sizing:border-box}
+html{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",Verdana,sans-serif;display:flex;justify-content:center;padding:calc(20px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px))}
+main{width:100%;max-width:560px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:22px;margin:0}
+.prog{color:var(--mute);font-size:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 18px;display:flex;flex-direction:column;gap:16px}
+.q{font-size:22px;font-weight:700;line-height:1.3}
+.big{font-size:44px;font-weight:700;text-align:center}
+.item,.opt{display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--bg);font-size:18px;line-height:1.3}
+.opt{cursor:pointer;width:100%;text-align:left;color:var(--ink);font-family:inherit}
+.opt.sel{border-color:var(--acc);background:var(--sel)}
+.item span{flex:1}
+.mv{display:flex;flex-direction:column;gap:4px}
+.mv button{padding:4px 12px;font-size:16px}
+button{font-family:inherit;font-size:18px;padding:12px 20px;border-radius:14px;border:2px solid var(--acc);background:var(--acc);color:var(--acc-ink);font-weight:700;cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border-color:var(--line)}
+input{width:100%;max-width:240px;align-self:center;font-size:36px;text-align:center;padding:10px;border-radius:14px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font-family:inherit}
+input:focus{outline:none;border-color:var(--acc)}
+.msg{font-size:20px;font-weight:700;min-height:26px;text-align:center}
+.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Письменные вычисления</h1>
+<div class="prog" id="prog"></div>
+<section class="card" id="card">
+<div class="q" id="q"></div>
+<div id="area" style="display:flex;flex-direction:column;gap:10px"></div>
+<div class="msg" id="msg"></div>
+<div class="row">
+<button id="chk">Проверить</button>
+<button id="nxt" class="alt hide">Дальше</button>
+</div>
+</section>
+</main>
+<script>
+(function(){
+var Q=[
+ {t:"seq",q:"Расставь действия по порядку при решении примера 465 + 378.",items:[
+  "Пишу единицы под единицами, десятки под десятками, сотни под сотнями.",
+  "Складываю единицы: 5 + 8 = 13. Пишу 3, 1 десяток запоминаю.",
+  "Складываю десятки: 6 + 7 + 1 = 14. Пишу 4, 1 сотню запоминаю.",
+  "Складываю сотни: 4 + 3 + 1 = 8.",
+  "Читаю ответ: 843."]},
+ {t:"ch",q:"С какого разряда начинаем складывать столбиком?",a:"С единиц",w:["С сотен","С десятков"]},
+ {t:"ch",q:"5 + 8 = 13. Что делаем дальше?",a:"Пишу 3, 1 десяток запоминаю",w:["Пишу 13 под единицами","Пишу 1, 3 запоминаю"]},
+ {t:"ch",q:"Из 4 единиц нельзя вычесть 7. Что делаем?",a:"Занимаем 1 десяток (это 10 единиц) и считаем 14 − 7",w:["Вычитаем из 7 число 4","Пишем 0 и идём дальше"]},
+ {t:"in",v:[["352 + 426",778],["243 + 516",759],["614 + 273",887]]},
+ {t:"in",v:[["465 + 378",843],["289 + 437",726],["556 + 268",824]]},
+ {t:"in",v:[["524 − 267",257],["635 − 258",377],["742 − 385",357]]}
+];
+var $=function(i){return document.getElementById(i)};
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+var idx=0,score=0,tries=0,done=false,cur,order,opts,sel,pick;
+function show(){
+ cur=Q[idx];tries=0;done=false;sel=null;
+ $("prog").textContent="Вопрос "+(idx+1)+" из "+Q.length;
+ $("msg").textContent="";$("msg").className="msg";
+ $("nxt").className="alt hide";$("chk").className="";
+ $("nxt").textContent=idx===Q.length-1?"Результат":"Дальше";
+ var A=$("area");A.innerHTML="";
+ if(cur.t==="seq"){
+  $("q").textContent=cur.q;
+  order=shuf(cur.items.map(function(_,i){return i}));
+  while(order.join()===cur.items.map(function(_,i){return i}).join())order=shuf(order);
+  drawSeq();
+ }else if(cur.t==="ch"){
+  $("q").textContent=cur.q;
+  opts=shuf([cur.a].concat(cur.w));
+  opts.forEach(function(o){
+   var b=document.createElement("button");b.className="opt";b.textContent=o;
+   b.onclick=function(){if(done)return;sel=o;[].forEach.call(A.children,function(c){c.className="opt"+(c===b?" sel":"")})};
+   A.appendChild(b)});
+ }else{
+  pick=cur.v[Math.floor(Math.random()*cur.v.length)];
+  $("q").textContent="Реши столбиком в тетради и введи ответ.";
+  var d=document.createElement("div");d.className="big";d.textContent=pick[0];A.appendChild(d);
+  var inp=document.createElement("input");inp.type="number";inp.inputMode="numeric";inp.id="ans";inp.placeholder="?";
+  inp.addEventListener("keydown",function(e){if(e.key==="Enter")$("chk").click()});
+  A.appendChild(inp);
+ }
+}
+function drawSeq(){
+ var A=$("area");A.innerHTML="";
+ order.forEach(function(k,p){
+  var r=document.createElement("div");r.className="item";
+  var s=document.createElement("span");s.textContent=cur.items[k];r.appendChild(s);
+  var m=document.createElement("div");m.className="mv";
+  [["▲",-1],["▼",1]].forEach(function(x){
+   var b=document.createElement("button");b.className="alt";b.textContent=x[0];b.setAttribute("aria-label",x[1]<0?"Выше":"Ниже");
+   b.onclick=function(){if(done)return;var q=p+x[1];if(q<0||q>=order.length)return;var t=order[p];order[p]=order[q];order[q]=t;drawSeq()};
+   m.appendChild(b)});
+  r.appendChild(m);A.appendChild(r)});
+}
+function check(){
+ if(done)return;
+ var ok=false;
+ if(cur.t==="seq")ok=order.every(function(k,i){return k===i});
+ else if(cur.t==="ch"){if(sel===null)return;ok=sel===cur.a}
+ else{var v=$("ans").value;if(v==="")return;ok=parseInt(v,10)===pick[1]}
+ if(ok){
+  if(tries===0)score++;
+  done=true;$("msg").textContent="Верно! Молодец!";$("msg").className="msg ok";
+  $("chk").className="hide";$("nxt").className="";
+ }else{
+  tries++;$("msg").textContent="Подумай ещё раз";$("msg").className="msg bad";
+ }
+}
+function next(){
+ idx++;
+ if(idx>=Q.length){
+  $("prog").textContent="Готово";
+  $("q").textContent="Твой результат: "+score+" из "+Q.length;
+  $("area").innerHTML="";
+  var d=document.createElement("div");d.className="big";
+  d.textContent=score>=6?"Отлично!":score>=4?"Хорошо!":"Попробуй ещё раз";
+  $("area").appendChild(d);
+  $("msg").textContent="";$("chk").className="hide";$("nxt").className="hide";
+  var b=document.createElement("button");b.textContent="Пройти заново";
+  b.onclick=function(){idx=0;score=0;show()};
+  $("area").appendChild(b);
+  return;
+ }
+ show();
+}
+$("chk").onclick=check;$("nxt").onclick=next;
+show();
+})();
+</script>
+</body>
+</html>
